@@ -7,6 +7,7 @@ import json
 import time
 import logging
 import multiprocessing
+import pytesseract
 
 class Vision:
     
@@ -82,6 +83,54 @@ class Api:
         
         return coords_list
     
+    def get_text_from_boundingbox(self, coords):
+
+        with open("model_view_output/text.json", "r") as f:
+            text_coords = json.load(f)
+
+        x1, y1, x2, y2 = coords
+        x1 -= 10
+        y1 -= 10
+        x2 += 10
+        y2 += 10
+
+        for coord_list in text_coords:
+
+            textx1, texty1, textx2, texty2 = coord_list
+
+            if textx1 > x1:
+                if texty1 > y1:
+                    if textx2 < x2:
+                        if texty2 < y2:
+                            print("text found")
+                            return coord_list
+        
+        return 0
+    
+    def read_image(self, coords=None, image=None):
+
+        pytesseract.pytesseract.tesseract_cmd = r'C:/Program Files/Tesseract-OCR/tesseract.exe' #you need to put the path in to the tesseract install
+
+        sct = mss()
+        monitor = sct.monitors[1]
+
+        if coords:
+            screen = np.array(sct.grab(monitor))
+            x1, y1, x2, y2 = coords
+            x1 -= 5
+            y1 -= 5
+            x2 += 5
+            y2 += 5
+            image = screen[y1:y2, x1:x2]
+            image = Image.fromarray(image)
+            text = pytesseract.image_to_string(image)
+            return text
+        
+        if image:
+            text = pytesseract.image_to_string(image)
+            return text
+
+ 
 def start_vision_process(model):
     vision_instance = Vision(model)
     vision_instance.start_vision()
@@ -92,7 +141,14 @@ if __name__ == "__main__":
     vision_process.start()
 
     while True:
-        if input() == "f":
+        
+        user_input = input()
+
+        if user_input:
             api = Api()
-            seen = api.get_screen_labels()
-            print(seen)
+            coords = user_input.split(" ")
+            coords = [int(coord) for coord in coords]
+            coords = api.get_text_from_boundingbox(coords)
+            coords = [int(x) for x in coords]
+            text = api.read_image(coords=coords)
+            print(text)
