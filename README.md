@@ -1,4 +1,4 @@
-# oarc_vision_gradio
+# oarc webui
 oarc vision gradio ui for llama3.1 oarc commander and yolo vision finetune
 
 <div style="display: flex; width: 100%;">
