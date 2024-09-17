@@ -30,7 +30,10 @@ function App() {
 
   const initializeSocket = () => {
     setDebugInfo(prevInfo => prevInfo + "\nInitializing socket...");
-    socketRef.current = io('http://localhost:5000');
+    socketRef.current = io('http://localhost:5000', {
+      transports: ['websocket'],
+      upgrade: false,
+    });
     socketRef.current.on('connect', () => {
       setDebugInfo(prevInfo => prevInfo + "\nSocket connected");
     });
@@ -62,6 +65,7 @@ function App() {
       setPositions(response.data);
     } catch (error) {
       console.error('Error fetching positions:', error);
+      setDebugInfo(prevInfo => prevInfo + `\nError fetching positions: ${error.message}`);
     }
   };
 
@@ -71,13 +75,14 @@ function App() {
       setExtractedText(response.data.text);
     } catch (error) {
       console.error('Error reading image:', error);
+      setDebugInfo(prevInfo => prevInfo + `\nError reading image: ${error.message}`);
     }
   };
 
   const handleSendMessage = async () => {
     if (inputMessage.trim() === '') return;
   
-    setChatMessages([...chatMessages, { role: 'user', content: inputMessage }]);
+    setChatMessages(prevMessages => [...prevMessages, { role: 'user', content: inputMessage }]);
     setInputMessage('');
   
     try {
@@ -85,6 +90,7 @@ function App() {
       setChatMessages(prevMessages => [...prevMessages, { role: 'ai', content: response.data.response }]);
     } catch (error) {
       console.error('Error sending message:', error);
+      setDebugInfo(prevInfo => prevInfo + `\nError sending message: ${error.message}`);
     }
   };
 

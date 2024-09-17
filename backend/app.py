@@ -18,8 +18,8 @@ import logging
 import os
 
 app = Flask(__name__)
-CORS(app)
-socketio = SocketIO(app, cors_allowed_origins="*")
+CORS(app, resources={r"/*": {"origins": "http://localhost:3000"}})
+socketio = SocketIO(app, cors_allowed_origins="http://localhost:3000")
 
 def ensure_dir(file_path):
     directory = os.path.dirname(file_path)
@@ -94,20 +94,19 @@ class Api:
             coords = [int(x) for x in coords]
             x1, y1, x2, y2 = coords
             try:
-               x1 -= 5
-               y1 -= 5
-               x2 += 5
-               y2 += 5
+               x1 = max(0, x1 - 5)
+               y1 = max(0, y1 - 5)
+               x2 = min(screen.shape[1], x2 + 5)
+               y2 = min(screen.shape[0], y2 + 5)
             except:
                 pass
             image = screen[y1:y2, x1:x2]
             image = Image.fromarray(image)
-            text = pytesseract.image_to_string(image)
-            return text
         
-        if image:
+        if image is not None:
             text = pytesseract.image_to_string(image)
             return text
+        return ""
 
     def get_screen_with_boxes(self):
         screen = np.array(self.sct.grab(self.monitor))
@@ -231,9 +230,9 @@ def start_updating(model):
     api.updating_text(model=model)
 
 if __name__ == '__main__':
-    vision_model = "Computer_Vision_1.3.0.onnx"
+    vision_model = "Computer_Vision_1.3.0.onnx"  # Make sure this file exists
     vision_process = multiprocessing.Process(target=start_vision_process, args=(vision_model,))
     updating_process = multiprocessing.Process(target=start_updating, args=(vision_model,))
     vision_process.start()
     updating_process.start()
-    socketio.run(app, debug=True, allow_unsafe_werkzeug=True)
+    socketio.run(app, debug=True, port=5000)
