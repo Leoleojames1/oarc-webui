@@ -1,0 +1,8 @@
+/oarc-next/node_modules/
+/oarc-next/.next/
+/oarc-next/.env*
+/oarc-next/.env.local/
+/backend/app/.venv/
+*.pyc
+__pycache__/*
+package-lock.json
