@@ -1,0 +1,6 @@
+
+
+    store last 5 minutes of audio also break up with silence
+
+    if hey alexa
+        then send the last 5 minutes of non silence to whisper
