@@ -72,18 +72,17 @@ export default function EnhancedChatInterface() {
   const { toast } = useToast()
 
   const setupWebSocket = useCallback(() => {
-    if (!isComponentMounted.current) return
-    if (ws.current?.readyState === WebSocket.CONNECTING) return
-    if (ws.current?.readyState === WebSocket.OPEN) return
-    if (reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS) return
-
-    // Close existing connection if any
-    if (ws.current) {
-      ws.current.close()
-    }
-
+    // Generate a unique agent ID if not already stored
+    const agentId = localStorage.getItem('agentId') || 
+                   `agent-${Math.random().toString(36).substr(2, 9)}`;
+    localStorage.setItem('agentId', agentId);
+  
+    if (ws.current?.readyState === WebSocket.CONNECTING) return;
+    if (ws.current?.readyState === WebSocket.OPEN) return;
+    if (reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS) return;
+  
     try {
-      ws.current = new WebSocket('ws://localhost:2020/ws')
+      ws.current = new WebSocket(`ws://localhost:2020/ws/${agentId}`)
       
       ws.current.onopen = () => {
         if (!isComponentMounted.current) return
@@ -156,7 +155,9 @@ export default function EnhancedChatInterface() {
   }, [toast])
 
   const setupAudioWebSocket = useCallback(() => {
-    audioWs.current = new WebSocket('ws://localhost:2020/audio')
+    const agentId = localStorage.getItem('agentId');
+    
+    audioWs.current = new WebSocket(`ws://localhost:2020/audio-stream/${agentId}`)
     audioWs.current.onmessage = (event) => {
       const data = JSON.parse(event.data)
       if (data.user_audio_data) {
@@ -199,14 +200,16 @@ export default function EnhancedChatInterface() {
       })
       return
     }
-
+  
     try {
-      ws.current.send(JSON.stringify({ type, message: content }))
+      ws.current.send(JSON.stringify({
+        type: type,
+        content: content
+      }))
+      
       if (type === 'chat') {
         setChatHistory(prev => [...prev, { role: 'user', content }])
-        setStreamingMessage('')  // Clear streaming message when sending a new message
-      } else if (type === 'command') {
-        setCommandResult(null)  // Clear previous command result
+        setStreamingMessage('')
       }
     } catch (error) {
       console.error('Error sending message:', error)
@@ -218,16 +221,32 @@ export default function EnhancedChatInterface() {
     }
   }, [toast])
 
+  const getMessageColor = (role, color) => {
+    switch (role) {
+      case 'user':
+        return 'bg-blue-500 text-white'
+      case 'assistant':
+        return color ? `bg-[${color}] text-white` : 'bg-green-500 text-white'
+      case 'system':
+        return 'bg-gray-500 text-white'
+      default:
+        return 'bg-gray-300 text-black'
+    }
+  }
+  
   const fetchAvailableModels = async () => {
     try {
       const response = await fetch('http://localhost:2020/available_models')
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
       const data = await response.json()
       setAvailableModels(data.models || [])
     } catch (error) {
       console.error('Error fetching available models:', error)
       toast({
         title: "Error",
-        description: "Failed to fetch available models",
+        description: `Failed to fetch available models: ${error.message}`,
         variant: "destructive",
       })
     }

@@ -41,45 +41,58 @@ export default function ChatSection({
     }
   }
 
-  const getMessageColor = (role) => {
-    switch (role) {
+  const getMessageStyle = (msg) => {
+    // Base styles
+    let baseStyle = "inline-block p-2 rounded "
+    
+    switch (msg.role) {
       case 'user':
-        return 'bg-blue-500 text-white'
+        return baseStyle + 'bg-blue-500 text-white'
       case 'assistant':
-        return 'bg-green-500 text-white'
+        // Use color from backend if available, otherwise fallback
+        return baseStyle + (msg.color ? `bg-[${msg.color}]` : 'bg-green-500') + ' text-white'
       case 'system':
-        return 'bg-gray-500 text-white'
+        return baseStyle + (msg.color ? `bg-[${msg.color}]` : 'bg-gray-500') + ' text-white'
       default:
-        return 'bg-gray-300 text-black'
+        return baseStyle + 'bg-gray-300 text-black'
     }
   }
 
   return (
     <Card className="w-full h-full flex flex-col bg-gray-900 text-green-400 font-mono">
       <CardContent className="flex-grow overflow-auto p-4" ref={chatContainerRef}>
+        {/* Chat History */}
         {chatHistory.map((msg, index) => (
-          <div key={index} className={`mb-2 ${msg.role === 'user' ? 'text-right' : 'text-left'}`}>
-            <span className={`inline-block p-2 rounded ${getMessageColor(msg.role)}`}>
+          <div 
+            key={index} 
+            className={`mb-2 ${msg.role === 'user' ? 'text-right' : 'text-left'}`}
+          >
+            <span className={getMessageStyle(msg)}>
               {msg.role === 'user' ? '> ' : ''}{msg.content}
             </span>
           </div>
         ))}
+        
+        {/* Streaming Message */}
         {streamingMessage && (
           <div className="mb-2 text-left">
-            <span className={`inline-block p-2 rounded ${getMessageColor('assistant')}`}>
+            <span className={getMessageStyle({ role: 'assistant' })}>
               {streamingMessage}
             </span>
           </div>
         )}
+        
+        {/* Command Result */}
         {commandResult && (
           <div className="mb-2 text-left">
-            <span className={`inline-block p-2 rounded ${getMessageColor('system')}`}>
+            <span className={getMessageStyle({ role: 'system' })}>
               Command Result: {commandResult}
             </span>
           </div>
         )}
       </CardContent>
       
+      {/* Input Section */}
       <div className="p-4 border-t border-green-400">
         <Select value={selectedModel} onValueChange={onModelChange}>
           <SelectTrigger className="w-full bg-gray-800 text-green-400 border-green-400">
