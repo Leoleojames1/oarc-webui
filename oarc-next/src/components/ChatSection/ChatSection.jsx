@@ -16,12 +16,29 @@ export default function ChatSection({
 }) {
   const [message, setMessage] = useState('')
   const chatContainerRef = useRef(null)
+  const [currentStream, setCurrentStream] = useState({ role: 'assistant', content: '' })
 
   useEffect(() => {
     if (chatContainerRef.current) {
-      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight
+      const { scrollHeight, clientHeight } = chatContainerRef.current
+      const isNearBottom = scrollHeight - chatContainerRef.current.scrollTop <= clientHeight + 100
+      
+      if (isNearBottom) {
+        chatContainerRef.current.scrollTop = scrollHeight
+      }
     }
-  }, [chatHistory, streamingMessage])
+  }, [chatHistory, currentStream])
+
+  useEffect(() => {
+    if (streamingMessage) {
+      setCurrentStream(prev => ({
+        role: 'assistant',
+        content: prev.content + streamingMessage
+      }))
+    } else {
+      setCurrentStream({ role: 'assistant', content: '' })
+    }
+  }, [streamingMessage])
 
   const handleSend = () => {
     if (message.trim() && isConnected) {
@@ -42,57 +59,56 @@ export default function ChatSection({
   }
 
   const getMessageStyle = (msg) => {
-    // Base styles
-    let baseStyle = "inline-block p-2 rounded "
+    const baseStyle = "inline-block p-2 rounded whitespace-pre-wrap break-words max-w-[80%] "
     
-    switch (msg.role) {
+    switch(msg.role) {
       case 'user':
-        return baseStyle + 'bg-blue-500 text-white'
+        return baseStyle + 'bg-blue-600 text-white'
       case 'assistant':
-        // Use color from backend if available, otherwise fallback
-        return baseStyle + (msg.color ? `bg-[${msg.color}]` : 'bg-green-500') + ' text-white'
+        return baseStyle + 'bg-green-600 text-white'
       case 'system':
-        return baseStyle + (msg.color ? `bg-[${msg.color}]` : 'bg-gray-500') + ' text-white'
+        return baseStyle + 'bg-gray-600 text-white'
       default:
-        return baseStyle + 'bg-gray-300 text-black'
+        return baseStyle + 'bg-gray-400 text-black'
     }
   }
 
   return (
     <Card className="w-full h-full flex flex-col bg-gray-900 text-green-400 font-mono">
-      <CardContent className="flex-grow overflow-auto p-4" ref={chatContainerRef}>
-        {/* Chat History */}
-        {chatHistory.map((msg, index) => (
-          <div 
-            key={index} 
-            className={`mb-2 ${msg.role === 'user' ? 'text-right' : 'text-left'}`}
-          >
-            <span className={getMessageStyle(msg)}>
-              {msg.role === 'user' ? '> ' : ''}{msg.content}
-            </span>
-          </div>
-        ))}
-        
-        {/* Streaming Message */}
-        {streamingMessage && (
-          <div className="mb-2 text-left">
-            <span className={getMessageStyle({ role: 'assistant' })}>
-              {streamingMessage}
-            </span>
-          </div>
-        )}
-        
-        {/* Command Result */}
-        {commandResult && (
-          <div className="mb-2 text-left">
-            <span className={getMessageStyle({ role: 'system' })}>
-              Command Result: {commandResult}
-            </span>
-          </div>
-        )}
+      <CardContent 
+        className="flex-grow overflow-y-auto p-4 scroll-smooth" 
+        ref={chatContainerRef}
+      >
+        <div className="flex flex-col space-y-4">
+          {chatHistory.map((msg, index) => (
+            <div 
+              key={`msg-${index}`}
+              className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+            >
+              <div className={getMessageStyle(msg)}>
+                {msg.content}
+              </div>
+            </div>
+          ))}
+          
+          {currentStream.content && (
+            <div className="flex justify-start">
+              <div className={getMessageStyle(currentStream)}>
+                {currentStream.content}
+              </div>
+            </div>
+          )}
+          
+          {commandResult && (
+            <div className="flex justify-start">
+              <div className={getMessageStyle({ role: 'system' })}>
+                {commandResult}
+              </div>
+            </div>
+          )}
+        </div>
       </CardContent>
       
-      {/* Input Section */}
       <div className="p-4 border-t border-green-400">
         <Select value={selectedModel} onValueChange={onModelChange}>
           <SelectTrigger className="w-full bg-gray-800 text-green-400 border-green-400">
@@ -125,12 +141,6 @@ export default function ChatSection({
           </Button>
         </div>
       </div>
-      
-      {!isConnected && (
-        <div className="p-2 bg-red-500 text-white text-center">
-          Disconnected - Waiting for connection...
-        </div>
-      )}
     </Card>
   )
 }

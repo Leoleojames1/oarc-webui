@@ -99,26 +99,37 @@ export default function EnhancedChatInterface() {
         try {
           const message = JSON.parse(event.data)
           switch (message.type) {
-            case 'chat_response':
-              setStreamingMessage(prev => prev + message.response)
+            case 'chat_message':
+              setChatHistory(prev => [...prev, { 
+                role: 'user', 
+                content: message.content 
+              }])
               break
-            case 'chat_response_end':
-              setChatHistory(prev => [...prev, { role: 'assistant', content: streamingMessage + (message.response || '') }])
-              setStreamingMessage('')
+            case 'chat_response':
+              if (message.is_stream) {
+                // Handle streaming message
+                setStreamingMessage(message.content)
+              } else {
+                // Handle complete message
+                setChatHistory(prev => [...prev, { 
+                  role: 'assistant', 
+                  content: message.content 
+                }])
+                setStreamingMessage('')
+              }
               break
             case 'command_result':
-              setCommandResult(message.response)
-              setChatHistory(prev => [...prev, { role: 'system', content: message.response }])
-              toast({
-                title: "Command Result",
-                description: message.response,
-              })
+              setCommandResult(message.content)
+              setChatHistory(prev => [...prev, { 
+                role: 'system', 
+                content: message.content 
+              }])
               break
             case 'error':
               toast({
                 title: "Error",
-                description: message.message,
-                variant: "destructive",
+                description: message.content,
+                variant: "destructive"
               })
               break
           }
@@ -194,7 +205,7 @@ export default function EnhancedChatInterface() {
   const sendMessage = useCallback((type, content) => {
     if (!ws.current || ws.current.readyState !== WebSocket.OPEN) {
       toast({
-        title: "Error",
+        title: "Error", 
         description: "Not connected to server",
         variant: "destructive",
       })
@@ -207,10 +218,7 @@ export default function EnhancedChatInterface() {
         content: content
       }))
       
-      if (type === 'chat') {
-        setChatHistory(prev => [...prev, { role: 'user', content }])
-        setStreamingMessage('')
-      }
+      setStreamingMessage('')
     } catch (error) {
       console.error('Error sending message:', error)
       toast({
