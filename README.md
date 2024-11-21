@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="docs/assets/icons/oarc_webui.jpg" alt="OARC LOGO" width="250"/>
+  <img src="icons/oarc_webui.jpg" alt="OARC LOGO" width="250"/>
 </p>
 <p align="center">
-  <a href="https://ko-fi.com/theborch"><img src="docs/assets/icons/buy me a coffee button.png" height="48"></a>
+  <a href="https://ko-fi.com/theborch"><img src="icons/buy me a coffee button.png" height="48"></a>
   <a href="https://discord.gg/mNeQZzBHuW"><img src="docs/assets/icons/Discord button.png" height="48"></a>
 </p>
 
