@@ -30,7 +30,7 @@
 ## Quick Start
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/oarc-webui.git
+git clone https://github.com/Leoleojames1/oarc-webui.git
 
 # Install dependencies
 cd oarc-webui
