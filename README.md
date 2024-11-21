@@ -3,7 +3,7 @@
 </p>
 <p align="center">
   <a href="https://ko-fi.com/theborch"><img src="icons/buy me a coffee button.png" height="48"></a>
-  <a href="https://discord.gg/mNeQZzBHuW"><img src="docs/assets/icons/Discord button.png" height="48"></a>
+  <a href="https://discord.gg/mNeQZzBHuW"><img src="icons/Discord button.png" height="48"></a>
 </p>
 
 # 🌐 OARC-WebUI 🖥️ V0.1.0
