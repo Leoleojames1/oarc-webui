@@ -10,7 +10,7 @@
 ***[🦙 Ollama Discord Server 🦙](https://discord.gg/ollama)*** | ***[OARC Webui Demo](https://vimeo.com/1022776731?share=copy)***
 
 ## About
-**OARC-WebUI** is a modern web interface for the Ollama Agent Roll Cage (OARC) framework, built with Next.js 14 and shadcn/ui. It provides a sleek, responsive frontend for interacting with OARC's powerful local AI capabilities including chat, speech-to-text, text-to-speech, and vision features. Now with mardown code rendering, as well as LaTeX mathematics formulas, just say "please use latex to explain..." or "please code me a python script for a transformers chatbot that ...." you'll get the hang of it :) welp! I off for vacation, I will fix the broken tts beta branch when I get back. Best of luck!
+**OARC-WebUI** is a modern web interface for the Ollama Agent Roll Cage (OARC) framework, built with Next.js 14 and shadcn/ui. It provides a sleek, responsive frontend for interacting with OARC's powerful local AI capabilities including chat, speech-to-text, text-to-speech, and vision features. Now with markdown code rendering, as well as LaTeX mathematics formulas, just say "please use latex to explain..." or "please code me a python script for a transformers chatbot that ...." you'll get the hang of it :) welp! I off for vacation, I will fix the broken tts beta branch when I get back. Best of luck!
 
 <p align="center">
   <img src="icons/oarc_webui1.png" alt="OARC LOGO" width="1000"/>
