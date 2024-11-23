@@ -207,111 +207,87 @@ export default function ChatSection({
 
   const MarkdownContent = ({ content }) => {
     const [showRawLatex, setShowRawLatex] = useState({})
-  
+
     const renderLatexContent = (text, id) => {
-      // First, escape any literal backslashes that aren't part of LaTeX
-      let processedText = text
-  
-      // Pattern to match LaTeX expressions including escaped delimiters
-      const latexPattern = /(?:\\\[[\s\S]*?\\\]|\\\(.*?\\\)|\$\$[\s\S]*?\$\$|\$[^\n$]*?\$)/g
-      const parts = []
-      let lastIndex = 0
-      let match
-  
-      while ((match = latexPattern.exec(processedText)) !== null) {
-        // Add text before the match
-        if (match.index > lastIndex) {
-          parts.push(processedText.slice(lastIndex, match.index))
-        }
-  
-        const fullMatch = match[0]
-        const isBlock = fullMatch.startsWith('\\[') || fullMatch.startsWith('$$')
-        let latex
-  
-        if (fullMatch.startsWith('\\[')) {
-          latex = fullMatch.slice(2, -2).trim()
-        } else if (fullMatch.startsWith('$$')) {
-          latex = fullMatch.slice(2, -2).trim()
-        } else if (fullMatch.startsWith('\\(')) {
-          latex = fullMatch.slice(2, -2).trim()
-        } else {
-          latex = fullMatch.slice(1, -1).trim()
-        }
-  
-        const latexId = `${id}-latex-${match.index}`
-        const showRaw = showRawLatex[latexId]
-  
-        parts.push(
-          <span 
-            key={latexId} 
-            className="relative group inline-flex items-center"
-          >
-            <span className={`
-              ${isBlock ? 'block my-4' : 'inline-block'} 
-              latex-wrapper 
-              hover:bg-opacity-10 
-              hover:bg-blue-500 
-              rounded 
-              px-1
-              ${isBlock ? 'w-full text-center' : ''}
-            `}>
-              {showRaw ? (
-                <code className="bg-black bg-opacity-20 px-1 py-0.5 rounded text-sm font-mono">
-                  {fullMatch}
-                </code>
-              ) : (
-                isBlock ? (
-                  <div className="text-blue-300">
-                    <BlockMath math={latex} />
-                  </div>
+      // Convert \[ \] to $$ $$ format first
+      text = text.replace(/\\\[([\s\S]*?)\\\]/g, '$$$$1$$')
+      // Convert \( \) to $ $ format
+      text = text.replace(/\\\((.*?)\\\)/g, '$$1')
+      
+      // Then split on $$ $$ and $ $ patterns
+      const parts = text.split(/((?:\$\$[\s\S]*?\$\$|\$[^\n$]*?\$))/g)
+      
+      return parts.map((part, index) => {
+        if (part?.startsWith('$')) {
+          const isBlock = part.startsWith('$$')
+          const latex = isBlock ? part.slice(2, -2) : part.slice(1, -1)
+          const latexId = `${id}-latex-${index}`
+          const showRaw = showRawLatex[latexId]
+
+          return (
+            <span 
+              key={latexId} 
+              className="relative group inline-flex items-center"
+            >
+              <span className={`
+                ${isBlock ? 'block my-4' : 'inline-block'} 
+                latex-wrapper 
+                hover:bg-opacity-10 
+                hover:bg-blue-500 
+                rounded 
+                px-1
+                ${isBlock ? 'w-full text-center' : ''}
+              `}>
+                {showRaw ? (
+                  <code className="bg-black bg-opacity-20 px-1 py-0.5 rounded text-sm font-mono">
+                    {isBlock ? `\\[\n${latex}\n\\]` : `\\(${latex}\\)`}
+                  </code>
                 ) : (
-                  <span className="text-blue-300">
-                    <InlineMath math={latex} />
-                  </span>
-                )
-              )}
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      className={`
-                        absolute -right-7 top-1/2 transform -translate-y-1/2
-                        opacity-0 group-hover:opacity-100 transition-opacity
-                        p-1 rounded-full bg-gray-800/50 hover:bg-gray-700/50
-                        border border-gray-600/30 shadow-lg
-                      `}
-                      onClick={() => setShowRawLatex(prev => ({
-                        ...prev,
-                        [latexId]: !prev[latexId]
-                      }))}
-                    >
-                      {showRaw ? (
-                        <Eye className="h-3 w-3 text-gray-300" />
-                      ) : (
-                        <Code className="h-3 w-3 text-gray-300" />
-                      )}
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="right" className="text-xs">
-                    {showRaw ? 'Show rendered' : 'Show LaTeX'}
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+                  isBlock ? (
+                    <div className="text-blue-300">
+                      <BlockMath math={latex} />
+                    </div>
+                  ) : (
+                    <span className="text-blue-300">
+                      <InlineMath math={latex} />
+                    </span>
+                  )
+                )}
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        className={`
+                          absolute -right-7 top-1/2 transform -translate-y-1/2
+                          opacity-0 group-hover:opacity-100 transition-opacity
+                          p-1 rounded-full bg-gray-800/50 hover:bg-gray-700/50
+                          border border-gray-600/30 shadow-lg
+                        `}
+                        onClick={() => setShowRawLatex(prev => ({
+                          ...prev,
+                          [latexId]: !prev[latexId]
+                        }))}
+                      >
+                        {showRaw ? (
+                          <Eye className="h-3 w-3 text-gray-300" />
+                        ) : (
+                          <Code className="h-3 w-3 text-gray-300" />
+                        )}
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="right" className="text-xs">
+                      {showRaw ? 'Show rendered' : 'Show LaTeX'}
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </span>
             </span>
-          </span>
-        )
-  
-        lastIndex = match.index + fullMatch.length
-      }
-  
-      // Add remaining text
-      if (lastIndex < processedText.length) {
-        parts.push(processedText.slice(lastIndex))
-      }
-  
-      return parts
+          )
+        }
+        return <span key={`${id}-text-${index}`}>{part}</span>
+      })
     }
-  
+
     return (
       <ReactMarkdown
         className="prose prose-invert max-w-none"
@@ -406,9 +382,17 @@ export default function ChatSection({
           {commandResult && (
             <div className="flex justify-start">
               <div className={getMessageStyle({ role: 'system' })}>
-                <MarkdownContent content={commandResult} />
+                <MarkdownContent content={
+                  typeof commandResult === 'object' && commandResult.formatted 
+                    ? commandResult.formatted 
+                    : String(commandResult)
+                } />
                 <CopyButton 
-                  text={commandResult}
+                  text={
+                    typeof commandResult === 'object' && commandResult.formatted 
+                      ? commandResult.formatted 
+                      : String(commandResult)
+                  }
                   id="command-result"
                 />
               </div>
