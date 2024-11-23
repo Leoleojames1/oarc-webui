@@ -3,11 +3,11 @@
 </p>
 <p align="center">
   <a href="https://ko-fi.com/theborch"><img src="icons/buy me a coffee button.png" height="48"></a>
-  <a href="https://discord.gg/mNeQZzBHuW"><img src="docs/assets/icons/Discord button.png" height="48"></a>
+  <a href="https://discord.gg/mNeQZzBHuW"><img src="icons/Discord button.png" height="48"></a>
 </p>
 
 # 🌐 OARC-WebUI 🖥️ V0.1.0
-***[🦙 Ollama Discord Server 🦙](https://discord.gg/ollama)*** | ***[🤖 OARC Discord 🧙](https://discord.gg/mNeQZzBHuW)***
+***[🦙 Ollama Discord Server 🦙](https://discord.gg/ollama)*** | ***[OARC Webui Demo](https://vimeo.com/1022776731?share=copy)***
 
 ## About
 **OARC-WebUI** is a modern web interface for the Ollama Agent Roll Cage (OARC) framework, built with Next.js 14 and shadcn/ui. It provides a sleek, responsive frontend for interacting with OARC's powerful local AI capabilities including chat, speech-to-text, text-to-speech, and vision features.
