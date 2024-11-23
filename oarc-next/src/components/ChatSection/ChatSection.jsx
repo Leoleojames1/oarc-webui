@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import ReactMarkdown from 'react-markdown'
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
+import { dracula } from 'react-syntax-highlighter/dist/cjs/styles/prism'
 
 export default function ChatSection({ 
   selectedModel, 
@@ -64,12 +66,12 @@ export default function ChatSection({
     
     switch(msg.role) {
       case 'user':
-        return baseStyle + 'bg-emerald-500 text-white' // Pastel green matching UI
+        return baseStyle + 'bg-emerald-500 text-white'
       case 'assistant':
-        return baseStyle + 'bg-sky-500 text-white' // Baby blue
+        return baseStyle + 'bg-sky-500 text-white'
       case 'system':
       default:
-        return baseStyle + 'bg-amber-500 text-white' // Construction yellow/orange
+        return baseStyle + 'bg-amber-500 text-white'
     }
   }
 
@@ -78,12 +80,36 @@ export default function ChatSection({
       className="prose prose-invert max-w-none"
       components={{
         p: ({ children }) => <p className="mb-1">{children}</p>,
-        code: ({ node, inline, className, children, ...props }) => (
-          <code className={`${inline ? 'bg-black bg-opacity-20 px-1 py-0.5 rounded' : 'block bg-black bg-opacity-20 p-2 rounded'} ${className}`} {...props}>
-            {children}
-          </code>
-        ),
-        pre: ({ children }) => <pre className="bg-black bg-opacity-20 p-2 rounded-lg overflow-x-auto">{children}</pre>,
+        code: ({ node, inline, className, children, ...props }) => {
+          const match = /language-(\w+)/.exec(className || '')
+          const language = match ? match[1] : ''
+          
+          return !inline ? (
+            <SyntaxHighlighter
+              style={dracula}
+              language={language}
+              PreTag="div"
+              className="rounded-lg"
+              showLineNumbers={true}
+              customStyle={{
+                margin: 0,
+                borderRadius: '0.5rem',
+                fontSize: '0.9em',
+              }}
+              {...props}
+            >
+              {String(children).replace(/\n$/, '')}
+            </SyntaxHighlighter>
+          ) : (
+            <code
+              className="bg-black bg-opacity-20 px-1 py-0.5 rounded text-sm"
+              {...props}
+            >
+              {children}
+            </code>
+          )
+        },
+        pre: ({ children }) => <div className="overflow-x-auto">{children}</div>,
       }}
     >
       {content}
