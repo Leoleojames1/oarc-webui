@@ -3,6 +3,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import ReactMarkdown from 'react-markdown'
 
 export default function ChatSection({ 
   selectedModel, 
@@ -59,19 +60,35 @@ export default function ChatSection({
   }
 
   const getMessageStyle = (msg) => {
-    const baseStyle = "inline-block p-2 rounded whitespace-pre-wrap break-words max-w-[80%] "
+    const baseStyle = "inline-block p-4 rounded-lg whitespace-pre-wrap break-words max-w-[80%] shadow-md "
     
     switch(msg.role) {
       case 'user':
-        return baseStyle + 'bg-blue-600 text-white'
+        return baseStyle + 'bg-emerald-500 text-white' // Pastel green matching UI
       case 'assistant':
-        return baseStyle + 'bg-green-600 text-white'
+        return baseStyle + 'bg-sky-500 text-white' // Baby blue
       case 'system':
-        return baseStyle + 'bg-gray-600 text-white'
       default:
-        return baseStyle + 'bg-gray-400 text-black'
+        return baseStyle + 'bg-amber-500 text-white' // Construction yellow/orange
     }
   }
+
+  const MarkdownContent = ({ content }) => (
+    <ReactMarkdown
+      className="prose prose-invert max-w-none"
+      components={{
+        p: ({ children }) => <p className="mb-1">{children}</p>,
+        code: ({ node, inline, className, children, ...props }) => (
+          <code className={`${inline ? 'bg-black bg-opacity-20 px-1 py-0.5 rounded' : 'block bg-black bg-opacity-20 p-2 rounded'} ${className}`} {...props}>
+            {children}
+          </code>
+        ),
+        pre: ({ children }) => <pre className="bg-black bg-opacity-20 p-2 rounded-lg overflow-x-auto">{children}</pre>,
+      }}
+    >
+      {content}
+    </ReactMarkdown>
+  )
 
   return (
     <Card className="w-full h-full flex flex-col bg-gray-900 text-green-400 font-mono">
@@ -86,7 +103,7 @@ export default function ChatSection({
               className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
             >
               <div className={getMessageStyle(msg)}>
-                {msg.content}
+                <MarkdownContent content={msg.content} />
               </div>
             </div>
           ))}
@@ -94,7 +111,7 @@ export default function ChatSection({
           {currentStream.content && (
             <div className="flex justify-start">
               <div className={getMessageStyle(currentStream)}>
-                {currentStream.content}
+                <MarkdownContent content={currentStream.content} />
               </div>
             </div>
           )}
@@ -102,7 +119,7 @@ export default function ChatSection({
           {commandResult && (
             <div className="flex justify-start">
               <div className={getMessageStyle({ role: 'system' })}>
-                {commandResult}
+                <MarkdownContent content={commandResult} />
               </div>
             </div>
           )}
