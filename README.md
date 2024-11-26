@@ -40,7 +40,7 @@
 git clone https://github.com/Leoleojames1/oarc-webui.git
 
 # Install dependencies
-cd oarc-webui
+cd oarc-next
 npm install
 
 # Start the development server
