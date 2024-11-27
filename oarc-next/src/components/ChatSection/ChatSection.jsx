@@ -3,10 +3,11 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Slider } from "@/components/ui/slider"
 import ReactMarkdown from 'react-markdown'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { dracula } from 'react-syntax-highlighter/dist/cjs/styles/prism'
-import { Copy, Check, Paperclip, X } from 'lucide-react'
+import { Copy, Check, Paperclip, X, Settings as SettingsIcon } from 'lucide-react'
 import { Eye, Code } from 'lucide-react'
 import remarkMath from 'remark-math'
 import rehypeKatex from 'rehype-katex'
@@ -37,11 +38,12 @@ export default function ChatSection({
   commandResult
 }) {
   const [message, setMessage] = useState('')
+  const [fontSize, setFontSize] = useState(16)
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const chatContainerRef = useRef(null)
   const [currentStream, setCurrentStream] = useState({ role: 'assistant', content: '' })
   const [copiedStates, setCopiedStates] = useState({})
-  const [isFileDialogOpen, setIsFileDialogOpen] = useState(false)
-  const [uploadedFiles, setUploadedFiles] = useState([])
+  const [attachedFiles, setAttachedFiles] = useState([])
   const fileInputRef = useRef(null)
 
   useEffect(() => {
@@ -97,8 +99,7 @@ export default function ChatSection({
       }
     }
 
-    setUploadedFiles([...uploadedFiles, ...newFiles])
-    setIsFileDialogOpen(true)
+    setAttachedFiles(prev => [...prev, ...newFiles])
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
     }
@@ -134,28 +135,33 @@ export default function ChatSection({
     return languageMap[ext] || 'plaintext'
   }
 
-  const insertFileContent = (file) => {
-    const codeBlock = `\`\`\`${file.language}\n${file.content}\n\`\`\``
-    setMessage(prev => {
-      const newMessage = prev ? `${prev}\n\n${codeBlock}` : codeBlock
-      return newMessage
-    })
-    setIsFileDialogOpen(false)
-    setUploadedFiles([])
-  }
-
   const removeFile = (index) => {
-    setUploadedFiles(prev => prev.filter((_, i) => i !== index))
+    setAttachedFiles(prev => prev.filter((_, i) => i !== index))
   }
 
   const handleSend = () => {
-    if (message.trim() && isConnected) {
-      if (message.startsWith('/')) {
-        sendMessage('command', message.trim())
-      } else {
-        sendMessage('chat', message.trim())
+    if ((message.trim() || attachedFiles.length > 0) && isConnected) {
+      let finalMessage = message.trim()
+      
+      // Append file contents to the message if there are attached files
+      if (attachedFiles.length > 0) {
+        const fileContents = attachedFiles.map(file => (
+          `File: ${file.name}\n\`\`\`${file.language}\n${file.content}\n\`\`\``
+        )).join('\n\n')
+        
+        finalMessage = finalMessage
+          ? `${finalMessage}\n\n${fileContents}`
+          : fileContents
       }
+
+      if (finalMessage.startsWith('/')) {
+        sendMessage('command', finalMessage)
+      } else {
+        sendMessage('chat', finalMessage)
+      }
+      
       setMessage('')
+      setAttachedFiles([])
     }
   }
 
@@ -167,17 +173,17 @@ export default function ChatSection({
   }
 
   const getMessageStyle = (msg) => {
-    const baseStyle = "inline-block p-4 rounded-lg whitespace-pre-wrap break-words max-w-[80%] shadow-md relative group "
+    const baseStyle = `inline-block p-4 rounded-lg whitespace-pre-wrap break-words max-w-[80%] shadow-md relative group`
+    const fontStyle = `text-[${fontSize}px]`
     
     switch(msg.role) {
       case 'user':
-        return baseStyle + 'bg-emerald-500 text-white'
+        return `${baseStyle} ${fontStyle} bg-emerald-500 text-white`
       case 'assistant':
-        return baseStyle + 'bg-indigo-500 text-white'
-        // return baseStyle + 'bg-sky-500 text-white'
+        return `${baseStyle} ${fontStyle} bg-indigo-500 text-white`
       case 'system':
       default:
-        return baseStyle + 'bg-amber-500 text-white'
+        return `${baseStyle} ${fontStyle} bg-amber-500 text-white`
     }
   }
 
@@ -346,9 +352,42 @@ export default function ChatSection({
   }
 
   return (
-    <Card className="w-full h-full flex flex-col bg-gray-900 text-green-400 font-mono">
+    <Card className="w-full h-full flex flex-col bg-gray-900 text-green-400 font-mono relative">
+      {/* Settings Button - Positioned in top left */}
+      <Button
+        size="icon"
+        variant="ghost"
+        className="absolute top-2 left-2 z-10 bg-gray-800 hover:bg-gray-700"
+        onClick={() => setIsSettingsOpen(true)}
+      >
+        <SettingsIcon className="h-4 w-4 text-green-400" />
+      </Button>
+  
+      {/* Settings Dialog */}
+      <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
+        <DialogContent className="bg-gray-800 text-green-400 border-green-400">
+          <DialogHeader>
+            <DialogTitle>Chat Settings</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Font Size: {fontSize}px</label>
+              <Slider
+                value={[fontSize]}
+                onValueChange={([value]) => setFontSize(value)}
+                min={12}
+                max={24}
+                step={1}
+                className="mt-2"
+              />
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+  
+      {/* Main Chat Content */}
       <CardContent 
-        className="flex-grow overflow-y-auto p-4 scroll-smooth" 
+        className="flex-grow overflow-y-auto p-4 scroll-smooth pt-12" 
         ref={chatContainerRef}
       >
         <div className="flex flex-col space-y-4">
@@ -401,6 +440,7 @@ export default function ChatSection({
         </div>
       </CardContent>
       
+      {/* Input Section */}
       <div className="p-4 border-t border-green-400">
         <Select value={selectedModel} onValueChange={onModelChange}>
           <SelectTrigger className="w-full bg-gray-800 text-green-400 border-green-400">
@@ -412,6 +452,25 @@ export default function ChatSection({
             ))}
           </SelectContent>
         </Select>
+  
+        {/* Attached Files Display */}
+        {attachedFiles.length > 0 && (
+          <div className="mt-2 space-y-2">
+            {attachedFiles.map((file, index) => (
+              <div key={index} className="flex items-center justify-between bg-gray-800 p-2 rounded">
+                <span className="text-sm truncate">{file.name}</span>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-6 w-6 hover:bg-gray-700"
+                  onClick={() => removeFile(index)}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
         
         <div className="flex mt-2">
           <div className="relative flex-grow flex">
@@ -436,7 +495,7 @@ export default function ChatSection({
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Upload code file</p>
+                  <p>Attach code files</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -460,43 +519,6 @@ export default function ChatSection({
           </Button>
         </div>
       </div>
-
-      <Dialog open={isFileDialogOpen} onOpenChange={setIsFileDialogOpen}>
-        <DialogContent className="bg-gray-800 text-green-400 border-green-400">
-          <DialogHeader>
-            <DialogTitle>Select File to Insert</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            {uploadedFiles.map((file, index) => (
-              <div 
-                key={index} 
-                className="flex items-center justify-between p-3 bg-gray-700 rounded-lg hover:bg-gray-600 cursor-pointer group"
-                onClick={() => insertFileContent(file)}
-              >
-                <div className="flex-1">
-                  <p className="font-medium">{file.name}</p>
-                  <p className="text-sm text-gray-400">
-                    {(file.size / 1024).toFixed(1)}KB • {file.language}
-                  </p>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      removeFile(index)
-                    }}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </DialogContent>
-      </Dialog>
     </Card>
   )
 }
