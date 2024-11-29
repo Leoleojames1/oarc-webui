@@ -7,7 +7,18 @@ import { Slider } from "@/components/ui/slider"
 import ReactMarkdown from 'react-markdown'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { dracula } from 'react-syntax-highlighter/dist/cjs/styles/prism'
-import { Copy, Check, Paperclip, X, Settings as SettingsIcon } from 'lucide-react'
+import { 
+  Copy, 
+  Check, 
+  Paperclip, 
+  X, 
+  Settings as SettingsIcon,
+  FileText,
+  FileCode,
+  FileJson,
+  FileImage,
+  File // default file icon
+} from 'lucide-react'
 import { Eye, Code } from 'lucide-react'
 import remarkMath from 'remark-math'
 import rehypeKatex from 'rehype-katex'
@@ -45,6 +56,45 @@ export default function ChatSection({
   const [copiedStates, setCopiedStates] = useState({})
   const [attachedFiles, setAttachedFiles] = useState([])
   const fileInputRef = useRef(null)
+  const getFileIcon = (language) => {
+    switch (language) {
+      case 'javascript':
+      case 'typescript':
+      case 'python':
+      case 'java':
+      case 'cpp':
+      case 'c':
+      case 'csharp':
+      case 'php':
+      case 'ruby':
+      case 'rust':
+      case 'go':
+      case 'swift':
+      case 'kotlin':
+        return <FileCode className="w-8 h-8" />;
+      case 'json':
+      case 'yaml':
+        return <FileJson className="w-8 h-8" />;
+      case 'markdown':
+      case 'txt':
+        return <FileText className="w-8 h-8" />;
+      case 'html':
+      case 'css':
+        return <FileCode className="w-8 h-8" />;
+      default:
+        return <File className="w-8 h-8" />;
+    }
+  };
+
+  useEffect(() => {
+    const savedConfig = localStorage.getItem('chatConfig')
+    if (savedConfig) {
+      const config = JSON.parse(savedConfig)
+      if (config.fontSize) {
+        setFontSize(config.fontSize)
+      }
+    }
+  }, [])
 
   useEffect(() => {
     if (chatContainerRef.current) {
@@ -173,17 +223,29 @@ export default function ChatSection({
   }
 
   const getMessageStyle = (msg) => {
-    const baseStyle = `inline-block p-4 rounded-lg whitespace-pre-wrap break-words max-w-[80%] shadow-md relative group`
-    const fontStyle = `text-[${fontSize}px]`
+    const getFontSizeClass = (size) => {
+      const sizes = {
+        12: 'text-xs',    // 0.75rem (12px)
+        14: 'text-sm',    // 0.875rem (14px)
+        16: 'text-base',  // 1rem (16px)
+        18: 'text-lg',    // 1.125rem (18px)
+        20: 'text-xl',    // 1.25rem (20px)
+        22: 'text-2xl',   // 1.5rem (24px)
+        24: 'text-3xl'    // 1.875rem (30px)
+      }
+      return sizes[size] || 'text-base'
+    }
+  
+    const baseStyle = `inline-block p-4 rounded-lg whitespace-pre-wrap break-words max-w-[80%] shadow-md relative group ${getFontSizeClass(fontSize)}`
     
     switch(msg.role) {
       case 'user':
-        return `${baseStyle} ${fontStyle} bg-emerald-500 text-white`
+        return `${baseStyle} bg-emerald-500 text-white`
       case 'assistant':
-        return `${baseStyle} ${fontStyle} bg-indigo-500 text-white`
+        return `${baseStyle} bg-indigo-500 text-white`
       case 'system':
       default:
-        return `${baseStyle} ${fontStyle} bg-amber-500 text-white`
+        return `${baseStyle} bg-amber-500 text-white`
     }
   }
 
@@ -312,6 +374,12 @@ export default function ChatSection({
             const language = match ? match[1] : ''
             const codeId = `code-${Math.random().toString(36).substr(2, 9)}`
             
+            const getFontSize = (baseSize) => {
+              // Scale code block font size relative to message font size
+              const ratio = fontSize / 16 // 16 is the base font size
+              return `${0.9 * ratio}em` // 0.9em is the default code size
+            }
+            
             return !inline ? (
               <div className="relative group">
                 <SyntaxHighlighter
@@ -323,7 +391,7 @@ export default function ChatSection({
                   customStyle={{
                     margin: 0,
                     borderRadius: '0.5rem',
-                    fontSize: '0.9em',
+                    fontSize: getFontSize(fontSize),
                   }}
                   {...props}
                 >
@@ -336,7 +404,7 @@ export default function ChatSection({
               </div>
             ) : (
               <code
-                className="bg-black bg-opacity-20 px-1 py-0.5 rounded text-sm"
+                className={`bg-black bg-opacity-20 px-1 py-0.5 rounded ${getFontSizeClass(fontSize)}`}
                 {...props}
               >
                 {children}
@@ -374,10 +442,19 @@ export default function ChatSection({
               <label className="text-sm font-medium">Font Size: {fontSize}px</label>
               <Slider
                 value={[fontSize]}
-                onValueChange={([value]) => setFontSize(value)}
+                onValueChange={([value]) => {
+                  setFontSize(value)
+                  // Save to localStorage immediately when changed
+                  const savedConfig = localStorage.getItem('chatConfig')
+                  const config = savedConfig ? JSON.parse(savedConfig) : {}
+                  localStorage.setItem('chatConfig', JSON.stringify({
+                    ...config,
+                    fontSize: value
+                  }))
+                }}
                 min={12}
                 max={24}
-                step={1}
+                step={2}
                 className="mt-2"
               />
             </div>
@@ -452,23 +529,44 @@ export default function ChatSection({
             ))}
           </SelectContent>
         </Select>
-  
-        {/* Attached Files Display */}
+        
         {attachedFiles.length > 0 && (
-          <div className="mt-2 space-y-2">
-            {attachedFiles.map((file, index) => (
-              <div key={index} className="flex items-center justify-between bg-gray-800 p-2 rounded">
-                <span className="text-sm truncate">{file.name}</span>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="h-6 w-6 hover:bg-gray-700"
-                  onClick={() => removeFile(index)}
+          <div className="mt-2 relative">
+            <div className="overflow-x-auto flex space-x-2 pb-2 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent">
+              {attachedFiles.map((file, index) => (
+                <div 
+                  key={index} 
+                  className="flex-shrink-0 w-32 h-32 bg-gray-800 rounded-lg p-3 relative group hover:bg-gray-700 transition-colors"
                 >
-                  <X className="h-3 w-3" />
-                </Button>
-              </div>
-            ))}
+                  <div className="flex flex-col h-full">
+                    {/* File Icon */}
+                    <div className="flex-grow flex items-center justify-center text-green-400 opacity-60">
+                      {getFileIcon(file.language)}
+                    </div>
+                    
+                    {/* File Name */}
+                    <div className="mt-2">
+                      <p className="text-xs text-green-400 truncate" title={file.name}>
+                        {file.name}
+                      </p>
+                      <p className="text-xs text-green-400/60">
+                        {(file.size / 1024).toFixed(1)}KB
+                      </p>
+                    </div>
+
+                    {/* Remove Button */}
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-red-500/80 hover:bg-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={() => removeFile(index)}
+                    >
+                      <X className="h-3 w-3 text-white" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
         
