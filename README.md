@@ -12,6 +12,10 @@
 ## About
 **OARC-WebUI** is a modern web interface for the Ollama Agent Roll Cage (OARC) framework, built with Next.js 14 and shadcn/ui. It provides a sleek, responsive frontend for interacting with OARC's powerful local AI capabilities including chat, speech-to-text, text-to-speech, and vision features.
 
+<p align="center">
+  <img src="icons/oarc_webui1.png" alt="OARC LOGO" width="1000"/>
+</p>
+
 ## Features
 - 🎨 Modern, responsive UI built with Next.js 14 and shadcn/ui
 - 💬 Real-time chat interface with streaming responses
