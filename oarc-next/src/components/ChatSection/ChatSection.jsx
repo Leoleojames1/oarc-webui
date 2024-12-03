@@ -17,9 +17,12 @@ import {
   FileCode,
   FileJson,
   FileImage,
-  File // default file icon
+  File,
+  Eye,
+  Code,
+  Expand,
+  Minimize
 } from 'lucide-react'
-import { Eye, Code } from 'lucide-react'
 import remarkMath from 'remark-math'
 import rehypeKatex from 'rehype-katex'
 import { InlineMath, BlockMath } from 'react-katex'
@@ -37,6 +40,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+
+import { Switch } from "@/components/ui/switch";
+import dynamic from 'next/dynamic';
+import mermaid from 'mermaid';
 
 export default function ChatSection({ 
   selectedModel, 
@@ -56,6 +63,7 @@ export default function ChatSection({
   const [copiedStates, setCopiedStates] = useState({})
   const [attachedFiles, setAttachedFiles] = useState([])
   const fileInputRef = useRef(null)
+  const [isDarkTheme, setIsDarkTheme] = useState(true);
   const getFileIcon = (language) => {
     switch (language) {
       case 'javascript':
@@ -85,6 +93,7 @@ export default function ChatSection({
         return <File className="w-8 h-8" />;
     }
   };
+  const NextJSPreview = dynamic(() => import('../NextJSPreview/NextJSPreview'), { ssr: false });
 
   useEffect(() => {
     const savedConfig = localStorage.getItem('chatConfig')
@@ -117,6 +126,140 @@ export default function ChatSection({
       setCurrentStream({ role: 'assistant', content: '' })
     }
   }, [streamingMessage])
+
+  const CodeBlock = ({ language, children, isUserMessage, isDarkTheme }) => {
+    const [showPreview, setShowPreview] = useState(false);
+    const [isExpanded, setIsExpanded] = useState(false);
+    const [previewError, setPreviewError] = useState(null);
+    const mermaidRef = useRef(null);
+    const [isLoading, setIsLoading] = useState(false);
+  
+    const getFontSize = (baseSize) => {
+      const ratio = fontSize / 16;
+      return `${0.9 * ratio}em`;
+    };
+  
+    const getPreviewType = (language) => {
+      return language === 'mermaid' ? 'mermaid' : 'react';
+    };
+
+    const PreviewWrapper = ({ children, error }) => (
+      <div className="rounded-lg bg-gray-800 border border-gray-700 overflow-hidden">
+        {error ? (
+          <div className="p-4 bg-red-900/20 text-red-400">{error}</div>
+        ) : children}
+      </div>
+    );
+
+    const canRender = (language) => {
+      return ['javascript', 'typescript', 'jsx', 'tsx', 'mermaid'].includes(language?.toLowerCase());
+    };
+
+    useEffect(() => {
+      if (language === 'mermaid' && showPreview && mermaidRef.current) {
+        try {
+          mermaid.initialize({
+            startOnLoad: false,
+            theme: isDarkTheme ? 'dark' : 'default',
+            securityLevel: 'loose',
+            flowchart: {
+              htmlLabels: true,
+              useMaxWidth: true,
+            }
+          });
+          
+          const uniqueId = `mermaid-${Math.random().toString(36).substr(2, 9)}`;
+          const cleanedCode = children
+          .replace(/graph LR graph LR/, 'graph LR')
+          .replace(/title\[([^\]]+)\]/, '$1')
+          .trim();
+
+          mermaid.render(uniqueId, cleanedCode).then(({ svg }) => {
+            if (mermaidRef.current) {
+              mermaidRef.current.innerHTML = svg;
+            }
+          }).catch((error) => {
+            setPreviewError(error.message);
+          });
+        } catch (error) {
+          setPreviewError(error.message);
+        }
+      }
+    }, [showPreview, language, children, isDarkTheme]);
+  
+    const renderPreview = () => {
+      if (previewError) return (
+        <div className="relative group">
+          <div className="text-red-500">Error: {previewError}</div>
+          <CopyButton text={previewError} id={`error-${Math.random()}`} />
+        </div>
+      );
+      
+      return (
+        <div className="relative group p-4 bg-white rounded-lg">
+          {language === 'mermaid' ? (
+            <>
+              <div ref={mermaidRef} className="mermaid">{children}</div>
+              <CopyButton text={children} id={`mermaid-${Math.random()}`} />
+            </>
+          ) : (
+            <NextJSPreview code={children} onLoadStart={() => setIsLoading(true)} onLoadEnd={() => setIsLoading(false)} />
+          )}
+        </div>
+      );
+    };
+  
+    return (
+      <div className="relative">
+        {canRender(language) && (
+          <div className="absolute top-2 left-2 z-10 flex items-center gap-2 bg-gray-800/90 rounded-full px-3 py-1">
+            <span className="text-xs text-green-400">Render</span>
+            <Switch
+              checked={showPreview}
+              onCheckedChange={setShowPreview}
+              className="data-[state=checked]:bg-green-400"
+            />
+          </div>
+        )}
+        {showPreview && (
+          <Button
+            size="icon"
+            variant="ghost"
+            className="absolute -top-2 right-6 h-6 w-6 rounded-full bg-gray-800/90"
+            onClick={() => setIsExpanded(!isExpanded)}
+          >
+            {isExpanded ? (
+              <Minimize className="h-3 w-3 text-green-400" />
+            ) : (
+              <Expand className="h-3 w-3 text-green-400" />
+            )}
+          </Button>
+        )}
+        {!showPreview ? (
+          <SyntaxHighlighter
+            style={dracula}
+            language={language}
+            className="rounded-lg"
+            customStyle={{
+              margin: 0,
+              fontSize: getFontSize(fontSize),
+            }}
+          >
+            {children}
+          </SyntaxHighlighter>
+        ) : (
+          <Dialog open={isExpanded} onOpenChange={setIsExpanded}>
+            <div className={`mt-4 ${isExpanded ? 'hidden' : 'block'}`}>
+              {renderPreview()}
+            </div>
+            <DialogContent className="max-w-7xl w-full h-[80vh]">
+              {renderPreview()}
+            </DialogContent>
+          </Dialog>
+        )}
+      </div>
+    );
+  };
 
   const handleCopy = async (text, id) => {
     try {
@@ -374,29 +517,15 @@ export default function ChatSection({
             const language = match ? match[1] : ''
             const codeId = `code-${Math.random().toString(36).substr(2, 9)}`
             
-            const getFontSize = (baseSize) => {
-              // Scale code block font size relative to message font size
-              const ratio = fontSize / 16 // 16 is the base font size
-              return `${0.9 * ratio}em` // 0.9em is the default code size
-            }
-            
             return !inline ? (
               <div className="relative group">
-                <SyntaxHighlighter
-                  style={dracula}
-                  language={language}
-                  PreTag="div"
-                  className="rounded-lg"
-                  showLineNumbers={true}
-                  customStyle={{
-                    margin: 0,
-                    borderRadius: '0.5rem',
-                    fontSize: getFontSize(fontSize),
-                  }}
-                  {...props}
-                >
-                  {String(children).replace(/\n$/, '')}
-                </SyntaxHighlighter>
+              <CodeBlock 
+                language={language}
+                isUserMessage={false}
+                isDarkTheme={isDarkTheme}
+              >
+                {String(children).replace(/\n$/, '')}
+              </CodeBlock>
                 <CopyButton 
                   text={String(children)} 
                   id={codeId}
@@ -416,7 +545,7 @@ export default function ChatSection({
       >
         {content}
       </ReactMarkdown>
-    )
+     )
   }
 
   return (
