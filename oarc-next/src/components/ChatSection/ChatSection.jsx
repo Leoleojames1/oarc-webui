@@ -44,6 +44,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import dynamic from 'next/dynamic';
 import mermaid from 'mermaid';
+import PreviewRenderer, { CodeBlock, ErrorBoundary } from '../PreviewRenderer/PreviewRenderer';
 
 export default function ChatSection({ 
   selectedModel, 
@@ -93,7 +94,6 @@ export default function ChatSection({
         return <File className="w-8 h-8" />;
     }
   };
-  const NextJSPreview = dynamic(() => import('../NextJSPreview/NextJSPreview'), { ssr: false });
 
   useEffect(() => {
     const savedConfig = localStorage.getItem('chatConfig')
@@ -126,140 +126,6 @@ export default function ChatSection({
       setCurrentStream({ role: 'assistant', content: '' })
     }
   }, [streamingMessage])
-
-  const CodeBlock = ({ language, children, isUserMessage, isDarkTheme }) => {
-    const [showPreview, setShowPreview] = useState(false);
-    const [isExpanded, setIsExpanded] = useState(false);
-    const [previewError, setPreviewError] = useState(null);
-    const mermaidRef = useRef(null);
-    const [isLoading, setIsLoading] = useState(false);
-  
-    const getFontSize = (baseSize) => {
-      const ratio = fontSize / 16;
-      return `${0.9 * ratio}em`;
-    };
-  
-    const getPreviewType = (language) => {
-      return language === 'mermaid' ? 'mermaid' : 'react';
-    };
-
-    const PreviewWrapper = ({ children, error }) => (
-      <div className="rounded-lg bg-gray-800 border border-gray-700 overflow-hidden">
-        {error ? (
-          <div className="p-4 bg-red-900/20 text-red-400">{error}</div>
-        ) : children}
-      </div>
-    );
-
-    const canRender = (language) => {
-      return ['javascript', 'typescript', 'jsx', 'tsx', 'mermaid'].includes(language?.toLowerCase());
-    };
-
-    useEffect(() => {
-      if (language === 'mermaid' && showPreview && mermaidRef.current) {
-        try {
-          mermaid.initialize({
-            startOnLoad: false,
-            theme: isDarkTheme ? 'dark' : 'default',
-            securityLevel: 'loose',
-            flowchart: {
-              htmlLabels: true,
-              useMaxWidth: true,
-            }
-          });
-          
-          const uniqueId = `mermaid-${Math.random().toString(36).substr(2, 9)}`;
-          const cleanedCode = children
-          .replace(/graph LR graph LR/, 'graph LR')
-          .replace(/title\[([^\]]+)\]/, '$1')
-          .trim();
-
-          mermaid.render(uniqueId, cleanedCode).then(({ svg }) => {
-            if (mermaidRef.current) {
-              mermaidRef.current.innerHTML = svg;
-            }
-          }).catch((error) => {
-            setPreviewError(error.message);
-          });
-        } catch (error) {
-          setPreviewError(error.message);
-        }
-      }
-    }, [showPreview, language, children, isDarkTheme]);
-  
-    const renderPreview = () => {
-      if (previewError) return (
-        <div className="relative group">
-          <div className="text-red-500">Error: {previewError}</div>
-          <CopyButton text={previewError} id={`error-${Math.random()}`} />
-        </div>
-      );
-      
-      return (
-        <div className="relative group p-4 bg-white rounded-lg">
-          {language === 'mermaid' ? (
-            <>
-              <div ref={mermaidRef} className="mermaid">{children}</div>
-              <CopyButton text={children} id={`mermaid-${Math.random()}`} />
-            </>
-          ) : (
-            <NextJSPreview code={children} onLoadStart={() => setIsLoading(true)} onLoadEnd={() => setIsLoading(false)} />
-          )}
-        </div>
-      );
-    };
-  
-    return (
-      <div className="relative">
-        {canRender(language) && (
-          <div className="absolute top-2 left-2 z-10 flex items-center gap-2 bg-gray-800/90 rounded-full px-3 py-1">
-            <span className="text-xs text-green-400">Render</span>
-            <Switch
-              checked={showPreview}
-              onCheckedChange={setShowPreview}
-              className="data-[state=checked]:bg-green-400"
-            />
-          </div>
-        )}
-        {showPreview && (
-          <Button
-            size="icon"
-            variant="ghost"
-            className="absolute -top-2 right-6 h-6 w-6 rounded-full bg-gray-800/90"
-            onClick={() => setIsExpanded(!isExpanded)}
-          >
-            {isExpanded ? (
-              <Minimize className="h-3 w-3 text-green-400" />
-            ) : (
-              <Expand className="h-3 w-3 text-green-400" />
-            )}
-          </Button>
-        )}
-        {!showPreview ? (
-          <SyntaxHighlighter
-            style={dracula}
-            language={language}
-            className="rounded-lg"
-            customStyle={{
-              margin: 0,
-              fontSize: getFontSize(fontSize),
-            }}
-          >
-            {children}
-          </SyntaxHighlighter>
-        ) : (
-          <Dialog open={isExpanded} onOpenChange={setIsExpanded}>
-            <div className={`mt-4 ${isExpanded ? 'hidden' : 'block'}`}>
-              {renderPreview()}
-            </div>
-            <DialogContent className="max-w-7xl w-full h-[80vh]">
-              {renderPreview()}
-            </DialogContent>
-          </Dialog>
-        )}
-      </div>
-    );
-  };
 
   const handleCopy = async (text, id) => {
     try {
@@ -417,24 +283,134 @@ export default function ChatSection({
   )
 
   const MarkdownContent = ({ content }) => {
-    const [showRawLatex, setShowRawLatex] = useState({})
-
+    // State for LaTeX rendering
+    const [showRawLatex, setShowRawLatex] = useState({});
+  
+    // Dedicated code block renderer - notice this is separate from the markdown rendering
+    const CodeBlock = React.memo(({ language, children }) => {
+      const [showPreview, setShowPreview] = useState(false);
+      const [isCopied, setIsCopied] = useState(false);
+      const [error, setError] = useState(null);
+      const code = String(children).replace(/\n$/, '');
+  
+      // Check if the language supports previewing
+      const canPreview = ['javascript', 'jsx', 'tsx', 'html', 'mermaid'].includes(language?.toLowerCase());
+  
+      const handleCopy = async () => {
+        try {
+          await navigator.clipboard.writeText(code);
+          setIsCopied(true);
+          setTimeout(() => setIsCopied(false), 2000);
+        } catch (err) {
+          console.error('Failed to copy:', err);
+        }
+      };
+  
+      return (
+        <div className="relative group mt-4">
+          {/* Copy Button */}
+          <div className="absolute top-2 right-2 z-10">
+            <Button
+              size="sm"
+              variant="ghost"
+              className="bg-gray-800/90 hover:bg-gray-700/90 text-green-400"
+              onClick={handleCopy}
+            >
+              {isCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+              <span className="ml-2">{isCopied ? 'Copied!' : 'Copy'}</span>
+            </Button>
+          </div>
+  
+          {/* Preview Toggle */}
+          {canPreview && (
+            <div className="absolute top-2 left-2 z-10 flex items-center gap-2 bg-gray-800/90 rounded-full px-3 py-1">
+              <span className="text-xs text-green-400">Render</span>
+              <Switch
+                checked={showPreview}
+                onCheckedChange={setShowPreview}
+                className="data-[state=checked]:bg-green-400"
+              />
+            </div>
+          )}
+  
+          {/* Main Content */}
+          <div className="mt-8">
+            {showPreview ? (
+              <ErrorBoundary
+                fallback={(error) => (
+                  <div className="p-4 bg-red-500/10 text-red-400 rounded relative">
+                    <p className="font-medium mb-2">Failed to render code:</p>
+                    <pre className="whitespace-pre-wrap text-sm font-mono">
+                      {error.message}
+                    </pre>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="absolute top-2 right-2 text-red-400 hover:text-red-300 hover:bg-red-500/20"
+                      onClick={() => navigator.clipboard.writeText(error.message)}
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      className="mt-4 text-sm text-red-400 hover:text-red-300"
+                      onClick={() => setShowPreview(false)}
+                    >
+                      Show code instead
+                    </Button>
+                  </div>
+                )}
+              >
+                <PreviewRenderer
+                  type={language === 'mermaid' ? 'mermaid' : language === 'html' ? 'html' : 'react'}
+                  content={code}
+                  isDarkTheme={isDarkTheme}
+                />
+              </ErrorBoundary>
+            ) : (
+              <SyntaxHighlighter
+                language={language || 'text'}
+                style={dracula}
+                className="!mt-0 rounded-lg"
+                customStyle={{
+                  margin: 0,
+                  padding: '1rem',
+                  backgroundColor: 'rgb(31, 41, 55)',
+                  fontSize: '0.875rem'
+                }}
+              >
+                {code}
+              </SyntaxHighlighter>
+            )}
+          </div>
+  
+          {error && (
+            <div className="mt-2 p-4 bg-red-500/10 text-red-400 rounded relative">
+              <p className="font-medium mb-2">Error:</p>
+              <pre className="whitespace-pre-wrap text-sm font-mono">{error}</pre>
+            </div>
+          )}
+        </div>
+      );
+    });
+  
+    // Your existing LaTeX rendering function
     const renderLatexContent = (text, id) => {
       // Convert \[ \] to $$ $$ format first
-      text = text.replace(/\\\[([\s\S]*?)\\\]/g, '$$$$1$$')
+      text = text.replace(/\\\[([\s\S]*?)\\\]/g, '$$$$1$$');
       // Convert \( \) to $ $ format
-      text = text.replace(/\\\((.*?)\\\)/g, '$$1')
+      text = text.replace(/\\\((.*?)\\\)/g, '$$1');
       
       // Then split on $$ $$ and $ $ patterns
-      const parts = text.split(/((?:\$\$[\s\S]*?\$\$|\$[^\n$]*?\$))/g)
+      const parts = text.split(/((?:\$\$[\s\S]*?\$\$|\$[^\n$]*?\$))/g);
       
       return parts.map((part, index) => {
         if (part?.startsWith('$')) {
-          const isBlock = part.startsWith('$$')
-          const latex = isBlock ? part.slice(2, -2) : part.slice(1, -1)
-          const latexId = `${id}-latex-${index}`
-          const showRaw = showRawLatex[latexId]
-
+          const isBlock = part.startsWith('$$');
+          const latex = isBlock ? part.slice(2, -2) : part.slice(1, -1);
+          const latexId = `${id}-latex-${index}`;
+          const showRaw = showRawLatex[latexId];
+  
           return (
             <span 
               key={latexId} 
@@ -493,61 +469,49 @@ export default function ChatSection({
                 </TooltipProvider>
               </span>
             </span>
-          )
+          );
         }
-        return <span key={`${id}-text-${index}`}>{part}</span>
-      })
-    }
-
+        return <span key={`${id}-text-${index}`}>{part}</span>;
+      });
+    };
+  
+    // Main markdown renderer
     return (
       <ReactMarkdown
         className="prose prose-invert max-w-none"
         remarkPlugins={[remarkMath]}
         rehypePlugins={[rehypeKatex]}
         components={{
-          p: ({ children }) => {
-            if (typeof children === 'string') {
-              const id = Math.random().toString(36).substr(2, 9)
-              return <p className="mb-1">{renderLatexContent(children, id)}</p>
-            }
-            return <p className="mb-1">{children}</p>
-          },
           code: ({ node, inline, className, children, ...props }) => {
-            const match = /language-(\w+)/.exec(className || '')
-            const language = match ? match[1] : ''
-            const codeId = `code-${Math.random().toString(36).substr(2, 9)}`
+            if (inline) {
+              return (
+                <code className="bg-black bg-opacity-20 px-1 py-0.5 rounded" {...props}>
+                  {children}
+                </code>
+              );
+            }
+  
+            const match = /language-(\w+)/.exec(className || '');
+            const language = match ? match[1] : '';
             
-            return !inline ? (
-              <div className="relative group">
-              <CodeBlock 
-                language={language}
-                isUserMessage={false}
-                isDarkTheme={isDarkTheme}
-              >
-                {String(children).replace(/\n$/, '')}
-              </CodeBlock>
-                <CopyButton 
-                  text={String(children)} 
-                  id={codeId}
-                />
-              </div>
-            ) : (
-              <code
-                className={`bg-black bg-opacity-20 px-1 py-0.5 rounded ${getFontSizeClass(fontSize)}`}
-                {...props}
-              >
+            return (
+              <CodeBlock language={language}>
                 {children}
-              </code>
-            )
+              </CodeBlock>
+            );
           },
-          pre: ({ children }) => <div className="overflow-x-auto">{children}</div>,
+          pre: ({ children }) => (
+            <div className="overflow-x-auto relative group">
+              {children}
+            </div>
+          ),
         }}
       >
         {content}
       </ReactMarkdown>
-     )
-  }
-
+    );
+  };
+  
   return (
     <Card className="w-full h-full flex flex-col bg-gray-900 text-green-400 font-mono relative">
       {/* Settings Button - Positioned in top left */}
