@@ -22,6 +22,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import DesktopStreamCard from "@/components/DesktopStreamCard/DesktopStreamCard"
 
 const ResponsiveGridLayout = WidthProvider(Responsive)
 
@@ -98,6 +99,8 @@ export default function EnhancedChatInterface() {
         if (!isComponentMounted.current) return
         try {
           const message = JSON.parse(event.data)
+          console.log('WebSocket received:', message); // Add this debug line
+          
           switch (message.type) {
             case 'chat_message':
               setChatHistory(prev => [...prev, { 
@@ -286,8 +289,8 @@ export default function EnhancedChatInterface() {
   }
 
   const handleLayoutChange = (newLayout) => {
-    setLayout(newLayout)
-  }
+    setLayout(newLayout);
+  };
 
   const saveConfig = useCallback(() => {
     const config = {
@@ -314,9 +317,24 @@ export default function EnhancedChatInterface() {
     }
   }, [])
 
-  const addComponent = useCallback((componentId) => {
-    setLayout(prev => [...prev, { i: componentId, x: 0, y: Infinity, w: 6, h: 6 }])
-  }, [])
+  // Modify the addComponent function to handle the new component and prevent stacking
+  const addComponent = (componentId) => {
+    const newComponent = {
+      i: `${componentId}-${Date.now()}`, // Ensure unique key for each component
+      x: 0,
+      y: Infinity, // This ensures the new component is placed at the bottom
+      w: 4,
+      h: 8,
+    };
+  
+    setLayout((prevLayout) => {
+      // Find the maximum y value in the current layout to place the new component below existing ones
+      const maxY = prevLayout.reduce((max, item) => Math.max(max, item.y + item.h), 0);
+      newComponent.y = maxY;
+  
+      return [...prevLayout, newComponent];
+    });
+  };
 
   const removeComponent = useCallback((componentId) => {
     setLayout(prev => prev.filter(item => item.i !== componentId))
@@ -375,6 +393,9 @@ export default function EnhancedChatInterface() {
                   onModelChange={handleModelChange}
                   isConnected={isConnected}
                 />
+              )}
+              {item.i.startsWith('desktopStream') && (
+                <DesktopStreamCard />
               )}
               {item.i === 'audioVisualizer' && (
                 <div className="flex h-full">
@@ -461,9 +482,15 @@ export default function EnhancedChatInterface() {
                       {component.name}
                     </Button>
                   ))}
+                  <Button
+                    onClick={() => addComponent('desktopStream')}
+                    className="w-full"
+                  >
+                    <Plus size={16} className="mr-2" />
+                    Desktop Stream
+                  </Button>
                 </div>
               </div>
-              <Button onClick={saveConfig}>Save Configuration</Button>
             </div>
           </DialogContent>
         </Dialog>

@@ -216,6 +216,22 @@ export function AudioProvider({ children }: AudioProviderProps) {
     sendAudioCommand(newState ? '/speech on' : '/speech off')
   }
 
+  const audioSocket = new WebSocket(`ws://localhost:2020/audio/${agentId}`);
+    audioSocket.binaryType = "arraybuffer";
+
+    // Handle incoming audio
+    audioSocket.onmessage = (event) => {
+      if (event.data instanceof ArrayBuffer) {
+        // Handle audio data
+        playAudio(event.data);
+      } else {
+        // Handle JSON messages
+        const message = JSON.parse(event.data);
+        handleMessage(message);
+      }
+    }
+  }
+
   const sendAudioCommand = (command: string) => {
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
       toast({

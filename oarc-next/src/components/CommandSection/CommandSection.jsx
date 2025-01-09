@@ -12,11 +12,14 @@ export default function CommandSection({ onSendMessage, selectedModel, onModelCh
   const [commandLibrary, setCommandLibrary] = useState([])
   const [selectedCommands, setSelectedCommands] = useState([])
   const [isEditingCommands, setIsEditingCommands] = useState(false)
+  const [availableAgents, setAvailableAgents] = useState([])
+  const [selectedAgent, setSelectedAgent] = useState('')
   const { toast } = useToast()
 
   useEffect(() => {
     fetchAvailableModels()
     fetchCommandLibrary()
+    fetchAvailableAgents()
   }, [])
 
   const fetchAvailableModels = async () => {
@@ -50,6 +53,21 @@ export default function CommandSection({ onSendMessage, selectedModel, onModelCh
     }
   }
 
+  const fetchAvailableAgents = async () => {
+    try {
+      const response = await fetch('http://localhost:2020/available_agents')
+      const data = await response.json()
+      setAvailableAgents(data.agents || [])
+    } catch (error) {
+      console.error('Error fetching available agents:', error)
+      toast({
+        title: "Error",
+        description: "Failed to fetch available agents",
+        variant: "destructive",
+      })
+    }
+  }
+
   const handleExecute = () => {
     if (command.trim()) {
       onSendMessage(command.startsWith('/') ? command : `/${command}`)
@@ -60,6 +78,11 @@ export default function CommandSection({ onSendMessage, selectedModel, onModelCh
   const handleModelChange = (value) => {
     onModelChange(value)
     onSendMessage(`/swap ${value}`)
+  }
+
+  const handleAgentChange = (value) => {
+    setSelectedAgent(value)
+    onSendMessage(`/agent select ${value}`)
   }
 
   const toggleCommandSelection = (cmd) => {
@@ -79,6 +102,17 @@ export default function CommandSection({ onSendMessage, selectedModel, onModelCh
             <SelectItem value="default">Select a model</SelectItem>
             {availableModels.map((model) => (
               <SelectItem key={model} value={model}>{model}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={selectedAgent} onValueChange={handleAgentChange}>
+          <SelectTrigger className="w-full mb-4 bg-black text-green-400 border-green-400">
+            <SelectValue placeholder="Select Agent" />
+          </SelectTrigger>
+          <SelectContent className="bg-black text-green-400 border-green-400">
+            <SelectItem value="default">Select an agent</SelectItem>
+            {availableAgents.map((agent) => (
+              <SelectItem key={agent.id} value={agent.id}>{agent.id}</SelectItem>
             ))}
           </SelectContent>
         </Select>

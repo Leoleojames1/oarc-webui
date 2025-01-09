@@ -5,8 +5,8 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Slider } from "@/components/ui/slider"
 import ReactMarkdown from 'react-markdown'
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
-import { dracula } from 'react-syntax-highlighter/dist/cjs/styles/prism'
+import { PrismLight as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { dracula } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { 
   Copy, 
   Check, 
@@ -56,15 +56,50 @@ export default function ChatSection({
   isConnected,
   commandResult
 }) {
-  const [message, setMessage] = useState('')
-  const [fontSize, setFontSize] = useState(16)
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
-  const chatContainerRef = useRef(null)
-  const [currentStream, setCurrentStream] = useState({ role: 'assistant', content: '' })
-  const [copiedStates, setCopiedStates] = useState({})
-  const [attachedFiles, setAttachedFiles] = useState([])
-  const fileInputRef = useRef(null)
+  const [message, setMessage] = useState('');
+  const [fontSize, setFontSize] = useState(16);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const chatContainerRef = useRef(null);
+  const [currentStream, setCurrentStream] = useState({
+    role: 'assistant',
+    content: ''
+  });
+  const [copiedStates, setCopiedStates] = useState({});
+  const [attachedFiles, setAttachedFiles] = useState([]);
+  const fileInputRef = useRef(null);
   const [isDarkTheme, setIsDarkTheme] = useState(true);
+  const [availableAgents, setAvailableAgents] = useState([]);
+  const [selectedAgent, setSelectedAgent] = useState('');
+
+  useEffect(() => {
+    fetchAvailableAgents();
+  }, []);
+
+  const handleAgentChange = async (value) => {
+    try {
+      const response = await fetch('http://localhost:2020/set_agent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ agent_id: value }),
+      });
+
+      if (!response.ok) throw new Error('Failed to set agent');
+
+      toast({
+        title: "Agent Changed",
+        description: `Agent set to ${value}`,
+      });
+      setSelectedAgent(value);
+    } catch (error) {
+      console.error('Error setting agent:', error);
+      toast({
+        title: "Error",
+        description: "Failed to set agent",
+        variant: "destructive",
+      });
+    }
+  };
+
   const getFileIcon = (language) => {
     switch (language) {
       case 'javascript':
@@ -105,27 +140,66 @@ export default function ChatSection({
     }
   }, [])
 
+  // Add this check in your useEffect for chatHistory/currentStream updates
   useEffect(() => {
     if (chatContainerRef.current) {
       const { scrollHeight, clientHeight } = chatContainerRef.current
-      const isNearBottom = scrollHeight - chatContainerRef.current.scrollTop <= clientHeight + 100
-      
-      if (isNearBottom) {
-        chatContainerRef.current.scrollTop = scrollHeight
-      }
+      chatContainerRef.current.scrollTop = scrollHeight
     }
   }, [chatHistory, currentStream])
 
+  // Add this logging to help debug message flow
   useEffect(() => {
-    if (streamingMessage) {
-      setCurrentStream(prev => ({
-        role: 'assistant',
-        content: prev.content + streamingMessage
-      }))
-    } else {
-      setCurrentStream({ role: 'assistant', content: '' })
+    console.log('New chat history:', chatHistory)
+  }, [chatHistory])
+
+  useEffect(() => {
+    if (streamingMessage === null || streamingMessage === undefined) {
+      setCurrentStream({ role: 'assistant', content: '' });
+      return;
     }
-  }, [streamingMessage])
+  
+    setCurrentStream(prev => {
+      // Ensure both previous and new content are properly formatted strings
+      const processContent = (content) => {
+        if (content === null || content === undefined) return '';
+        
+        // If it's a JSON string, try to parse it first
+        if (typeof content === 'string') {
+          try {
+            const parsed = JSON.parse(content);
+            return typeof parsed === 'object' ? JSON.stringify(parsed, null, 2) : String(parsed);
+          } catch (e) {
+            // If it's not valid JSON, just return the string
+            return content;
+          }
+        }
+        
+        // If it's already an object, stringify it
+        if (typeof content === 'object') {
+          return JSON.stringify(content, null, 2);
+        }
+        
+        return String(content);
+      };
+  
+      const prevContent = processContent(prev.content);
+      const newContent = processContent(streamingMessage);
+      
+      // Log for debugging
+      console.debug('Content types:', {
+        prevType: typeof prev.content,
+        newType: typeof streamingMessage,
+        processedPrev: prevContent,
+        processedNew: newContent
+      });
+  
+      return {
+        role: 'assistant',
+        content: prevContent + newContent
+      };
+    });
+  }, [streamingMessage]);
 
   const handleCopy = async (text, id) => {
     try {
@@ -212,15 +286,19 @@ export default function ChatSection({
           ? `${finalMessage}\n\n${fileContents}`
           : fileContents
       }
-
-      if (finalMessage.startsWith('/')) {
-        sendMessage('command', finalMessage)
-      } else {
-        sendMessage('chat', finalMessage)
+  
+      try {
+        if (finalMessage.startsWith('/')) {
+          sendMessage('command', finalMessage)
+        } else {
+          sendMessage('chat', finalMessage)
+        }
+        
+        setMessage('')
+        setAttachedFiles([])
+      } catch (error) {
+        console.error('Error sending message:', error)
       }
-      
-      setMessage('')
-      setAttachedFiles([])
     }
   }
 
@@ -286,6 +364,23 @@ export default function ChatSection({
     // State for LaTeX rendering
     const [showRawLatex, setShowRawLatex] = useState({});
   
+    const processContent = (content) => {
+      if (content === null || content === undefined) {
+        return '';
+      }
+      
+      if (typeof content === 'object') {
+        try {
+          return JSON.stringify(content, null, 2);
+        } catch (err) {
+          console.error('Error stringifying content:', err);
+          return String(content || '');
+        }
+      }
+      
+      return String(content);
+    };
+
     // Dedicated code block renderer - notice this is separate from the markdown rendering
     const CodeBlock = React.memo(({ language, children }) => {
       const [showPreview, setShowPreview] = useState(false);
@@ -507,11 +602,26 @@ export default function ChatSection({
           ),
         }}
       >
-        {content}
+        {processContent(content)}
       </ReactMarkdown>
     );
   };
   
+  const fetchAvailableAgents = async () => {
+    try {
+      const response = await fetch('http://localhost:2020/available_agents');
+      const data = await response.json();
+      setAvailableAgents(data.agents || []);
+    } catch (error) {
+      console.error('Error fetching available agents:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch available agents",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <Card className="w-full h-full flex flex-col bg-gray-900 text-green-400 font-mono relative">
       {/* Settings Button - Positioned in top left */}
@@ -550,6 +660,19 @@ export default function ChatSection({
                 step={2}
                 className="mt-2"
               />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Select Agent</label>
+              <Select value={selectedAgent} onValueChange={handleAgentChange}>
+                <SelectTrigger className="w-full bg-gray-800 text-green-400 border-green-400">
+                  <SelectValue placeholder="Select Agent" />
+                </SelectTrigger>
+                <SelectContent className="bg-gray-800 text-green-400 border-green-400">
+                  {availableAgents.map((agent) => (
+                    <SelectItem key={agent} value={agent}>{agent}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </DialogContent>
